@@ -36,7 +36,9 @@ TRANSLATIONS = {
         'language_en': "1. English",
         'language_pt': "2. Portuguese",
         'choose_language': "Choose language (1-2): ",
-        'language_changed': "Language changed successfully!"
+        'language_changed': "Language changed successfully!",
+        'default_file_name': "Unknown file",
+        'downloading_file': "Downloading: {}"
     },
     'pt': {
         'analyzing_url': "Analisando URL: {}",
@@ -74,6 +76,8 @@ TRANSLATIONS = {
         'language_en': "1. Inglês",
         'language_pt': "2. Português",
         'choose_language': "Escolha o idioma (1-2): ",
-        'language_changed': "Idioma alterado com sucesso!"
+        'language_changed': "Idioma alterado com sucesso!",
+        'default_file_name': "Arquivo desconhecido",
+        'downloading_file': "Baixando: {}"
     }
 }

@@ -8,10 +8,8 @@ from colorama import init, Fore, Style
 # Import translations from the separate file
 from translations import TRANSLATIONS
 
-# Inicializa colorama para formatar texto no terminal
+# Initialize colorama for terminal text formatting
 init()
-
-# Dictionary with translations moved to translations.py
 
 class VideoDownloader:
     def __init__(self, language='pt'):
@@ -19,14 +17,14 @@ class VideoDownloader:
         self.history_file = os.path.join(self.download_path, "download_history.json")
         self.language = language
         self.texts = TRANSLATIONS.get(language, TRANSLATIONS['en'])
+        self.progress_bar = None
         
-        # Criar diretório de downloads se não existir
+        # Create download directory if it doesn't exist
         if not os.path.exists(self.download_path):
             os.makedirs(self.download_path)
         
-        # Carregar histórico se existir
+        # Load history if it exists
         self.history = self.load_history()
-        self.progress_bar = None
     
     def load_history(self):
         if os.path.exists(self.history_file):
@@ -44,16 +42,16 @@ class VideoDownloader:
     def download_progress_hook(self, d):
         if d['status'] == 'downloading':
             if self.progress_bar is None and 'total_bytes' in d:
+                filename = d.get('filename', self.texts['default_file_name'])
                 self.progress_bar = tqdm(
                     total=d['total_bytes'],
                     unit='B',
                     unit_scale=True,
-                    desc=f"Baixando {d.get('filename', 'arquivo')}"
+                    desc=self.texts['downloading_file'].format(filename)
                 )
             
-            if self.progress_bar is not None:
-                if 'downloaded_bytes' in d:
-                    self.progress_bar.update(d['downloaded_bytes'] - self.progress_bar.n)
+            if self.progress_bar is not None and 'downloaded_bytes' in d:
+                self.progress_bar.update(d['downloaded_bytes'] - self.progress_bar.n)
         
         elif d['status'] == 'finished':
             if self.progress_bar is not None:
@@ -85,7 +83,7 @@ class VideoDownloader:
                 
                 ydl.download([url])
                 
-                # Salvar no histórico
+                # Save to history
                 self.history.append({
                     'title': title,
                     'url': url,
@@ -110,10 +108,10 @@ class VideoDownloader:
         print(f"\n{Fore.CYAN}{self.texts['history_title']}{Style.RESET_ALL}")
         for i, item in enumerate(self.history, 1):
             print(f"{Fore.WHITE}{i}. {item['title']}{Style.RESET_ALL}")
-            print(f"   URL: {item['url']}")
-            print(f"   Data: {item['date']}")
-            print(f"   Plataforma: {item['platform']}")
-            print(f"   Qualidade: {item['quality']}")
+            print(f"   {self.texts['url_label']}: {item['url']}")
+            print(f"   {self.texts['date_label']}: {item['date']}")
+            print(f"   {self.texts['platform_label']}: {item['platform']}")
+            print(f"   {self.texts['quality_label']}: {item['quality']}")
             print()
     
     def clear_history(self):
@@ -128,9 +126,15 @@ class VideoDownloader:
             return True
         return False
 
-def main():
-    # Load default language from config file if exists
-    config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+def get_config_file_path():
+    """Get the path to the config file"""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+
+def load_language_from_config():
+    """Load language setting from config file"""
+    config_file = get_config_file_path()
     default_language = 'pt'
     
     if os.path.exists(config_file):
@@ -141,6 +145,19 @@ def main():
         except:
             pass
     
+    return default_language
+
+
+def save_language_to_config(language):
+    """Save language preference to config file"""
+    config_file = get_config_file_path()
+    with open(config_file, 'w', encoding='utf-8') as f:
+        json.dump({'language': language}, f, ensure_ascii=False, indent=4)
+
+
+def main():
+    # Load default language from config file
+    default_language = load_language_from_config()
     downloader = VideoDownloader(language=default_language)
     
     while True:
@@ -154,82 +171,80 @@ def main():
         choice = input(f"\n{downloader.texts['choose_option']}")
         
         if choice == '1':
-            url = input(f"{downloader.texts['enter_url']}")
-            print(f"\n{downloader.texts['video_quality']}")
-            print(f"{downloader.texts['best_quality']}")
-            print(f"{downloader.texts['720p']}")
-            print(f"{downloader.texts['480p']}")
-            print(f"{downloader.texts['360p']}")
-            
-            quality_choice = input(f"{downloader.texts['choose_quality']}")
-            
-            quality_map = {
-                '1': 'best',
-                '2': '720',
-                '3': '480',
-                '4': '360'
-            }
-            
-            quality = quality_map.get(quality_choice, 'best')
-            
-            success, message = downloader.download_video(url, quality)
-            if success:
-                print(f"{Fore.GREEN}{downloader.texts['download_success'].format(message)}{Style.RESET_ALL}")
-                print(f"{downloader.texts['saved_in'].format(downloader.download_path)}")
-        
+            handle_download(downloader)
         elif choice == '2':
             downloader.show_history()
-        
         elif choice == '3':
-            confirm = input(f"{downloader.texts['confirm_clear']}")
-            if confirm.lower() in ['s', 'y']:
-                downloader.clear_history()
-        
+            handle_clear_history(downloader)
         elif choice == '4':
-            print(f"\n{downloader.texts['language_options']}")
-            print(f"{downloader.texts['language_en']}")
-            print(f"{downloader.texts['language_pt']}")
-            
-            lang_choice = input(f"{downloader.texts['choose_language']}")
-            
-            lang_map = {
-                '1': 'en',
-                '2': 'pt'
-            }
-            
-            new_lang = lang_map.get(lang_choice)
-            if new_lang and downloader.change_language(new_lang):
-                print(f"{Fore.GREEN}{downloader.texts['language_changed']}{Style.RESET_ALL}")
-                
-                # Save language preference to config file
-                with open(config_file, 'w', encoding='utf-8') as f:
-                    json.dump({'language': new_lang}, f, ensure_ascii=False, indent=4)
-            else:
-                print(f"{Fore.RED}{downloader.texts['invalid_option']}{Style.RESET_ALL}")
-        
+            handle_language_change(downloader)
         elif choice == '5':
             print(f"{Fore.GREEN}{downloader.texts['exiting']}{Style.RESET_ALL}")
             break
-        
         else:
             print(f"{Fore.RED}{downloader.texts['invalid_option']}{Style.RESET_ALL}")
+
+
+def handle_download(downloader):
+    """Handle the video download process"""
+    url = input(f"{downloader.texts['enter_url']}")
+    print(f"\n{downloader.texts['video_quality']}")
+    print(f"{downloader.texts['best_quality']}")
+    print(f"{downloader.texts['720p']}")
+    print(f"{downloader.texts['480p']}")
+    print(f"{downloader.texts['360p']}")
+    
+    quality_choice = input(f"{downloader.texts['choose_quality']}")
+    
+    quality_map = {
+        '1': 'best',
+        '2': '720',
+        '3': '480',
+        '4': '360'
+    }
+    
+    quality = quality_map.get(quality_choice, 'best')
+    
+    success, message = downloader.download_video(url, quality)
+    if success:
+        print(f"{Fore.GREEN}{downloader.texts['download_success'].format(message)}{Style.RESET_ALL}")
+        print(f"{downloader.texts['saved_in'].format(downloader.download_path)}")
+
+
+def handle_clear_history(downloader):
+    """Handle the clear history process"""
+    confirm = input(f"{downloader.texts['confirm_clear']}")
+    if confirm.lower() in ['s', 'y']:
+        downloader.clear_history()
+
+
+def handle_language_change(downloader):
+    """Handle the language change process"""
+    print(f"\n{downloader.texts['language_options']}")
+    print(f"{downloader.texts['language_en']}")
+    print(f"{downloader.texts['language_pt']}")
+    
+    lang_choice = input(f"{downloader.texts['choose_language']}")
+    
+    lang_map = {
+        '1': 'en',
+        '2': 'pt'
+    }
+    
+    new_lang = lang_map.get(lang_choice)
+    if new_lang and downloader.change_language(new_lang):
+        print(f"{Fore.GREEN}{downloader.texts['language_changed']}{Style.RESET_ALL}")
+        save_language_to_config(new_lang)
+    else:
+        print(f"{Fore.RED}{downloader.texts['invalid_option']}{Style.RESET_ALL}")
+
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
         # Get the current language from config file
-        config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-        language = 'pt'
-        
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                    language = config.get('language', 'pt')
-            except:
-                pass
-        
+        language = load_language_from_config()
         texts = TRANSLATIONS.get(language, TRANSLATIONS['en'])
         print(f"\n{Fore.YELLOW}{texts['interrupted']}{Style.RESET_ALL}")
         sys.exit(0)
